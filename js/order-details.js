@@ -328,28 +328,51 @@ function renderFormMode() {
   </div>
 
 
-  <!-- Item + Add -->
-  <div class="form-group">
-    <label class="f-label">Item</label>
+ <!-- Item + Add -->
+<div class="form-group">
+  <label class="f-label">Item</label>
 
-    <div class="item-select-row">
+  <div class="item-select-row">
 
-      <select id="itemSelect" disabled>
-        <option value="">Select item</option>
-      </select>
+    <div class="multi-select-dropdown" id="itemDropdown">
 
       <button
         type="button"
-        id="addFoodItemBtn"
-        class="add-food-btn"
-        disabled
-        title="Add Item"
+        class="multi-select-trigger"
+        id="itemDropdownTrigger"
       >
-        +
+        <span id="itemDropdownText">Select items</span>
+        <span class="dropdown-arrow">▼</span>
       </button>
 
+      <div
+        class="multi-select-menu"
+        id="itemDropdownMenu"
+      >
+
+        <label class="select-all-option">
+          <input type="checkbox" id="selectAllItems">
+          <span>Select All</span>
+        </label>
+
+        <div id="itemCheckboxList"></div>
+
+      </div>
+
     </div>
+
+    <button
+      type="button"
+      id="addFoodItemBtn"
+      class="add-food-btn"
+      disabled
+      title="Add Selected Items"
+    >
+      +
+    </button>
+
   </div>
+</div>
 
 </div>
 
@@ -383,30 +406,142 @@ function renderFormMode() {
 function onCustomerSelectChange(e){const c=S.customers.find(x=>x.id===e.target.value);if(!c)return;document.getElementById('custName').value=c.name||'';document.getElementById('custPhone').value=c.phone||'';document.getElementById('custEmail').value=c.email||'';document.getElementById('custAddress').value=c.address||'';}
 let itemSeq=0;
 function setupFoodPicker() {
-  const categorySelect = document.getElementById('itemCategorySelect');
-  const groupSelect = document.getElementById('itemGroupSelect');
-  const itemSelect = document.getElementById('itemSelect');
-  const addButton = document.getElementById('addFoodItemBtn');
+
+  const categorySelect =
+    document.getElementById('itemCategorySelect');
+
+  const groupSelect =
+    document.getElementById('itemGroupSelect');
+
+  const dropdown =
+    document.getElementById('itemDropdown');
+
+  const trigger =
+    document.getElementById('itemDropdownTrigger');
+
+  const menu =
+    document.getElementById('itemDropdownMenu');
+
+  const addButton =
+    document.getElementById('addFoodItemBtn');
+
+  const selectAll =
+    document.getElementById('selectAllItems');
+
+  // -----------------------------
+  // Category
+  // -----------------------------
 
   categorySelect.onchange = () => {
+
     fillOrderGroups(categorySelect.value);
+
     resetOrderItems();
+
   };
+
+
+  // -----------------------------
+  // Group
+  // -----------------------------
 
   groupSelect.onchange = () => {
+
     fillOrderItems(groupSelect.value);
+
   };
 
-  itemSelect.onchange = () => {
-    addButton.disabled = !itemSelect.value;
+
+  // -----------------------------
+  // Open / Close dropdown
+  // -----------------------------
+
+  trigger.onclick = (e) => {
+
+    e.stopPropagation();
+
+    dropdown.classList.toggle('open');
+
   };
+
+
+  // -----------------------------
+  // Close when clicking outside
+  // -----------------------------
+
+  document.addEventListener('click', (e) => {
+
+    if (!dropdown.contains(e.target)) {
+
+      dropdown.classList.remove('open');
+
+    }
+
+  });
+
+
+  // -----------------------------
+  // Select All
+  // -----------------------------
+
+  selectAll.onchange = () => {
+
+    const checkboxes =
+      document.querySelectorAll(
+        '#itemCheckboxList input[type="checkbox"]'
+      );
+
+    checkboxes.forEach(cb => {
+
+      cb.checked = selectAll.checked;
+
+    });
+
+    updateItemSelection();
+
+  };
+
+
+  // -----------------------------
+  // Add selected items
+  // -----------------------------
 
   addButton.onclick = () => {
-    if (!itemSelect.value) return;
-    addFoodItem(itemSelect.value);
-    itemSelect.value = '';
-    addButton.disabled = true;
+
+    const selected =
+      Array.from(
+        document.querySelectorAll(
+          '#itemCheckboxList input[type="checkbox"]:checked'
+        )
+      ).map(cb => cb.value);
+
+    if (!selected.length) return;
+
+
+    selected.forEach(foodItemId => {
+
+      addFoodItem(foodItemId);
+
+    });
+
+
+    // Clear selections
+
+    document
+      .querySelectorAll(
+        '#itemCheckboxList input[type="checkbox"]'
+      )
+      .forEach(cb => cb.checked = false);
+
+
+    selectAll.checked = false;
+
+    updateItemSelection();
+
+    dropdown.classList.remove('open');
+
   };
+
 }
 
 function fillOrderGroups(categoryId) {
@@ -430,33 +565,190 @@ function fillOrderGroups(categoryId) {
 }
 
 function fillOrderItems(groupId) {
-  const select = document.getElementById('itemSelect');
-  select.innerHTML = '<option value="">Select item</option>';
+
+  const list =
+    document.getElementById('itemCheckboxList');
+
+  const selectAll =
+    document.getElementById('selectAllItems');
+
+  const addButton =
+    document.getElementById('addFoodItemBtn');
+
+  const text =
+    document.getElementById('itemDropdownText');
+
+
+  list.innerHTML = '';
+
+  selectAll.checked = false;
+
+  addButton.disabled = true;
+
+  text.textContent = 'Select items';
+
 
   if (!groupId) {
-    select.disabled = true;
+
     return;
+
   }
 
+
   const items = S.foodItems.filter(item =>
+
     String(item.group_id) === String(groupId) &&
+
     item.is_available !== false
+
   );
 
-  select.innerHTML += items.map(item => `
-    <option value="${item.id}">${escapeHtml(item.name)}</option>
+
+  if (!items.length) {
+
+    list.innerHTML = `
+      <div class="no-items">
+        No items available
+      </div>
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML = items.map(item => `
+
+    <label class="item-checkbox-option">
+
+      <input
+        type="checkbox"
+        value="${item.id}"
+        onchange="updateItemSelection()"
+      >
+
+      <span>${escapeHtml(item.name)}</span>
+
+    </label>
+
   `).join('');
 
-  select.disabled = items.length === 0;
+}
+function updateItemSelection() {
+
+  const checkboxes =
+    Array.from(
+      document.querySelectorAll(
+        '#itemCheckboxList input[type="checkbox"]'
+      )
+    );
+
+  const selected =
+    checkboxes.filter(cb => cb.checked);
+
+  const addButton =
+    document.getElementById('addFoodItemBtn');
+
+  const selectAll =
+    document.getElementById('selectAllItems');
+
+  const text =
+    document.getElementById('itemDropdownText');
+
+
+  // -----------------------------
+  // Button state
+  // -----------------------------
+
+  addButton.disabled =
+    selected.length === 0;
+
+
+  // -----------------------------
+  // Select All state
+  // -----------------------------
+
+  selectAll.checked =
+    checkboxes.length > 0 &&
+    selected.length === checkboxes.length;
+
+
+  // -----------------------------
+  // Dropdown text
+  // -----------------------------
+
+  if (!selected.length) {
+
+    text.textContent = 'Select items';
+
+  }
+
+  else if (
+    selected.length === checkboxes.length
+  ) {
+
+    text.textContent =
+      `All ${selected.length} items selected`;
+
+  }
+
+  else if (selected.length === 1) {
+
+    text.textContent =
+      selected[0].parentElement
+        .querySelector('span')
+        .textContent;
+
+  }
+
+  else {
+
+    text.textContent =
+      `${selected.length} items selected`;
+
+  }
+
 }
 
 function resetOrderItems() {
-  const select = document.getElementById('itemSelect');
-  const addButton = document.getElementById('addFoodItemBtn');
 
-  select.innerHTML = '<option value="">Select item</option>';
-  select.disabled = true;
-  if (addButton) addButton.disabled = true;
+  const list =
+    document.getElementById('itemCheckboxList');
+
+  const selectAll =
+    document.getElementById('selectAllItems');
+
+  const addButton =
+    document.getElementById('addFoodItemBtn');
+
+  const text =
+    document.getElementById('itemDropdownText');
+
+
+  if (list) {
+
+    list.innerHTML = '';
+
+  }
+
+  if (selectAll) {
+
+    selectAll.checked = false;
+
+  }
+
+  if (addButton) {
+
+    addButton.disabled = true;
+
+  }
+
+  if (text) {
+
+    text.textContent = 'Select items';
+
+  }
+
 }
 
 

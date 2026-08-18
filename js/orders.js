@@ -17,7 +17,7 @@ const ordersState = {
 document.addEventListener('DOMContentLoaded', () => {
   renderShell('orders', 'Orders', 'All catering orders');
   document.getElementById('topbarActions').innerHTML =
-    `<a class="btn btn-primary" href="order-details.html?new=1">${icon('plus')} New Order</a>`;
+    `<a class="btn btn-primary" href="order-details.html">${icon('plus')} New Order</a>`;
   renderOrdersShell();
   loadOrders();
 });

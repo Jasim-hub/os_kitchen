@@ -456,7 +456,121 @@ tbody tr:hover{background:#FBFAF7;}
 .small-x-btn{width:28px;height:32px;padding:5px!important;border:1px solid var(--line)!important;border-radius:7px!important;background:#fff!important;display:flex!important;align-items:center;justify-content:center;}
 .small-x-btn svg{width:14px;height:14px;}
 .small-x-btn:hover{color:#b42318!important;border-color:#efb0aa!important;background:#fff5f4!important;}
+.multi-select-dropdown {
+  position: relative;
+  width: 100%;
+}
 
+.multi-select-trigger {
+  width: 100%;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid #d8d1c7;
+  border-radius: 12px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 16px;
+  color: #24303a;
+}
+
+.multi-select-trigger:hover {
+  border-color: #c28a27;
+}
+
+.dropdown-arrow {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.multi-select-dropdown.open .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.multi-select-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  z-index: 9999;
+  box-sizing: border-box;
+}
+
+.multi-select-dropdown.open .multi-select-menu {
+  display: block;
+}
+
+.select-all-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+}
+
+.item-checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 9px 14px;
+  box-sizing: border-box;
+}
+
+.select-all-option {
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+  background: #faf8f3;
+}
+
+.select-all-option:hover,
+.item-checkbox-option:hover {
+  background: #f7f3eb;
+}
+
+.select-all-option input[type="checkbox"],
+.item-checkbox-option input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  min-height: 16px !important;
+  max-height: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 0 0 16px !important;
+  cursor: pointer;
+}
+
+.item-checkbox-option span {
+  flex: 1;
+}
+
+.no-items {
+  padding: 15px;
+  color: #777;
+  text-align: center;
+}
+
+.item-select-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.item-select-row .multi-select-dropdown {
+  flex: 1;
+}
 @media(max-width:700px){
   .food-category-tabs{overflow-x:auto;flex-wrap:nowrap;}
   .food-category-tab-wrap{flex-shrink:0;}
@@ -466,4 +580,158 @@ tbody tr:hover{background:#FBFAF7;}
   .order-item-selects{grid-template-columns:1fr 1fr;}
   .order-item-selects .qty-field{grid-column:1;}
   .order-item-selects .small-x-btn{grid-column:2;align-self:end;justify-self:end;}
+  /* Food picker becomes one column */
+  .food-picker {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* Category, Group, Item full width */
+  .food-picker .form-group {
+    width: 100%;
+  }
+
+  /* Item + button */
+  .item-select-row {
+    display: flex !important;
+    width: 100%;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .item-select-row .multi-select-dropdown {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Dropdown button */
+  .multi-select-trigger {
+    width: 100%;
+    height: 48px;
+    padding: 0 13px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+
+  /* Add button */
+  .add-food-btn {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    padding: 0;
+    font-size: 24px;
+    border-radius: 10px;
+  }
+
+  /* Dropdown menu */
+  .multi-select-menu {
+    width: 100%;
+    max-height: 260px;
+    top: calc(100% + 5px);
+    border-radius: 10px;
+  }
+
+  /* Select All */
+  .select-all-option {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+
+  /* Items */
+  .item-checkbox-option {
+    min-height: 42px;
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  /* Checkbox size */
+  .select-all-option input[type="checkbox"],
+  .item-checkbox-option input[type="checkbox"] {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    max-width: 16px !important;
+    min-height: 16px !important;
+    max-height: 16px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 0 0 16px !important;
+  }
+
+  /* Selected food items */
+  .selected-food-items {
+    width: 100%;
+  }
+
+  .food-category-block {
+    width: 100%;
+  }
+
+  .food-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .food-item-chip {
+    max-width: 100%;
+    font-size: 13px;
+    padding: 7px 9px;
+  }
+
+  .food-chip-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+@media (max-width: 480px) {
+
+  .food-picker {
+    gap: 12px !important;
+  }
+
+  .f-label {
+    font-size: 14px;
+  }
+
+  .multi-select-trigger {
+    height: 46px;
+    font-size: 14px;
+    padding: 0 12px;
+  }
+
+  .add-food-btn {
+    width: 46px;
+    min-width: 46px;
+    height: 46px;
+    font-size: 22px;
+  }
+
+  .multi-select-menu {
+    max-height: 240px;
+  }
+
+  .select-all-option {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .item-checkbox-option {
+    padding: 9px 10px;
+    font-size: 14px;
+  }
+
+  .food-item-chip {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .food-chip-name {
+    max-width: calc(100% - 30px);
+  }
+
 }
