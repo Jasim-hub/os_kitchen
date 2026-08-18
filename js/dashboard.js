@@ -21,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDashboardShell();
   loadDashboard();
 });
-
+console.log("Selected range:", dashState.range);
+console.log("Today:", todayISO());
+console.log("Tomorrow:", addDaysISO(todayISO(), 1));
 function dateRangeBounds() {
   if (dashState.range === 'today') return [todayISO(), todayISO()];
   if (dashState.range === 'tomorrow') { const t = addDaysISO(todayISO(), 1); return [t, t]; }
@@ -225,7 +227,7 @@ async function generateTodayOrdersPDF() {
   // FILTER ORDERS
   // =========================================================
 
-  const rows = dashState.orders.filter(o => {
+   const rows = dashState.orders.filter(o => {
 
     if (
       dashState.status !== 'All' &&
@@ -252,7 +254,57 @@ async function generateTodayOrdersPDF() {
 
     return true;
   });
+  // =========================================================
+  // PDF REPORT TYPE / DATE / FILE NAME
+  // =========================================================
 
+  let pdfTitle = '';
+  let pdfDateText = '';
+  let pdfFileName = '';
+
+  if (dashState.range === 'today') {
+
+    const today = todayISO();
+
+    pdfTitle = "TODAY'S ORDERS";
+    pdfDateText = `Date: ${formatDateDisplay(today)}`;
+    pdfFileName = `${today}-orders.pdf`;
+
+  } else if (dashState.range === 'tomorrow') {
+
+    const tomorrow = addDaysISO(todayISO(), 1);
+
+    pdfTitle = "TOMORROW'S ORDERS";
+    pdfDateText = `Date: ${formatDateDisplay(tomorrow)}`;
+    pdfFileName = `${tomorrow}-orders.pdf`;
+
+  } else if (dashState.range === 'week') {
+
+    const weekStart = startOfWeekISO();
+    const weekEnd = addDaysISO(weekStart, 6);
+
+    pdfTitle = "WEEKLY ORDERS";
+    pdfDateText =
+      `Week: ${formatDateDisplay(weekStart)} - ${formatDateDisplay(weekEnd)}`;
+
+    pdfFileName = `weekly-orders.pdf`;
+
+  } else if (dashState.range === 'custom') {
+
+    const customDate = dashState.customDate;
+
+    pdfTitle = "CUSTOM DATE ORDERS";
+    pdfDateText = `Date: ${formatDateDisplay(customDate)}`;
+    pdfFileName = `${customDate}-orders.pdf`;
+
+  } else {
+
+    const today = todayISO();
+
+    pdfTitle = "TODAY'S ORDERS";
+    pdfDateText = `Date: ${formatDateDisplay(today)}`;
+    pdfFileName = `${today}-orders.pdf`;
+  }
 
   // =========================================================
   // CREATE PDF
@@ -418,7 +470,7 @@ async function generateTodayOrdersPDF() {
   doc.setFontSize(10);
 
   doc.text(
-    "TODAY'S ORDERS",
+    pdfTitle,
     105,
     57
   );
@@ -429,7 +481,7 @@ async function generateTodayOrdersPDF() {
   doc.setFontSize(9);
 
   doc.text(
-    `Date: ${formatDateDisplay(todayISO())}`,
+    pdfDateText,
     105,
     72
   );
@@ -1130,9 +1182,7 @@ async function generateTodayOrdersPDF() {
   // SAVE PDF
   // =========================================================
 
-  doc.save(
-    `todays-orders-${todayISO()}.pdf`
-  );
+  doc.save(pdfFileName);
 
 
   // =========================================================
@@ -1140,7 +1190,7 @@ async function generateTodayOrdersPDF() {
   // =========================================================
 
   toast(
-    "Today's orders PDF generated",
+    `${pdfTitle} PDF generated`,
     'success'
   );
 

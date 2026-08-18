@@ -169,10 +169,17 @@ function todayISO() {
   return d.toISOString().slice(0, 10);
 }
 
-function addDaysISO(isoDate, days) {
-  const d = new Date(isoDate + 'T00:00:00');
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+function addDaysISO(dateISO, days) {
+  const [year, month, day] = dateISO.split('-').map(Number);
+
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+
+  return `${y}-${m}-${d}`;
 }
 
 function startOfWeekISO() {
