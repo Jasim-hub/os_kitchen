@@ -2428,7 +2428,7 @@ summaryY += 20;
   // =====================================================
 
   doc.save(
-    `${shortId(o.id)}-payment-bill.pdf`
+    `${c.name || o.customer_name || '—'}-payment-bill.pdf`
   );
 
 
