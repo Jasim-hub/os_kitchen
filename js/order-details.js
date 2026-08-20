@@ -1548,105 +1548,81 @@ async function generatePDF() {
 
   let infoY = 125;
 
+// =====================================================
+// CUSTOMER BOX
+// =====================================================
 
-  // Customer box
+doc.setFillColor(248, 248, 248);
+doc.setDrawColor(220, 220, 220);
+doc.setLineWidth(0.8);
 
-  doc.setFillColor(
-    248,
-    248,
-    248
-  );
+doc.roundedRect(
+  35,
+  infoY,
+  250,
+  75,
+  6,
+  6,
+  'FD'
+);
 
-  doc.setDrawColor(
-    220,
-    220,
-    220
-  );
-
-  doc.roundedRect(
-    35,
-    infoY,
-    250,
-    75,
-    6,
-    6,
-    'FD'
-  );
-
-
-  doc.setFont(
-    'helvetica',
-    'bold'
-  );
-
-  doc.setFontSize(9);
-
-  doc.text(
-    'CUSTOMER',
-    48,
-    infoY + 18
-  );
-
-
-  doc.setFont(
-    'helvetica',
-    'normal'
-  );
-
-  doc.setFontSize(8.5);
-
-  doc.text(
-    `Name: ${c.name || o.customer_name || '—'}`,
-    48,
-    infoY + 35
-  );
-
-  doc.text(
-    `Phone: ${c.phone || '—'}`,
-    48,
-    infoY + 51
-  );
-
-  doc.text(
-    `Order: ${shortId(o.id)}`,
-    48,
-    infoY + 67
-  );
-
-
-  // Order details box
-
- // ORDER DETAILS BOX
-doc.setFillColor(
-    248,
-    248,
-    248
-  );
-
-  doc.setDrawColor(
-    220,
-    220,
-    220
-  );
-
-  doc.roundedRect(
-    35,
-    infoY,
-    250,
-    75,
-    6,
-    6,
-    'FD'
-  );
-
-// -----------------------------
-// ORDER DETAILS TITLE
-// -----------------------------
+// CUSTOMER TITLE
 doc.setFont('helvetica', 'bold');
 doc.setFontSize(9);
-doc.setTextColor(47,
-    100,
-    89);
+doc.setTextColor(47, 100, 89);
+
+doc.text(
+  'CUSTOMER',
+  48,
+  infoY + 18
+);
+
+// CUSTOMER DETAILS
+doc.setFont('helvetica', 'normal');
+doc.setFontSize(8.5);
+doc.setTextColor(35, 35, 35);
+
+doc.text(
+  `Name: ${c.name || o.customer_name || '—'}`,
+  48,
+  infoY + 35
+);
+
+doc.text(
+  `Phone: ${c.phone || '—'}`,
+  48,
+  infoY + 51
+);
+
+doc.text(
+  `Order: ${shortId(o.id)}`,
+  48,
+  infoY + 67
+);
+
+
+// =====================================================
+// ORDER DETAILS BOX
+// =====================================================
+
+doc.setFillColor(248, 248, 248);
+doc.setDrawColor(220, 220, 220);
+doc.setLineWidth(0.8);
+
+doc.roundedRect(
+  305,
+  infoY,
+  pageWidth - 340,
+  75,
+  6,
+  6,
+  'FD'
+);
+
+// ORDER DETAILS TITLE
+doc.setFont('helvetica', 'bold');
+doc.setFontSize(9);
+doc.setTextColor(47, 100, 89);
 
 doc.text(
   'ORDER DETAILS',
@@ -1654,14 +1630,10 @@ doc.text(
   infoY + 18
 );
 
-// -----------------------------
 // ORDER DETAILS CONTENT
-// -----------------------------
 doc.setFont('helvetica', 'normal');
 doc.setFontSize(8.5);
-doc.setTextColor(47,
-    100,
-    89);
+doc.setTextColor(35, 35, 35);
 
 doc.text(
   `Guests: ${o.guest_count || 0}`,
@@ -1680,7 +1652,6 @@ doc.text(
   318,
   infoY + 67
 );
-
 
   // =====================================================
   // BUILD FOOD HIERARCHY
