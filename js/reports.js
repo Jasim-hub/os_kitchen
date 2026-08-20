@@ -39,11 +39,951 @@ function renderRangeTable(){
  const rows=repState.orders.filter(inRange),body=document.getElementById('repTableBody');if(!rows.length){body.innerHTML=`<tr><td colspan="9">${emptyState('No orders in this range')}</td></tr>`;return;}
  body.innerHTML=rows.map(o=>{const c=calc(o);return `<tr><td class="order-id">ORD-${o.id.slice(0,8).toUpperCase()}</td><td>${escapeHtml(o.customers?.name||o.customer_name||'—')}</td><td>${formatDateDisplay(o.order_date)}</td><td>${money(c.total)}</td><td>${money(c.paid)}</td><td>${money(c.disc)}</td><td><strong>${money(c.balance)}</strong></td><td>${payBadge(o)}</td><td><a class="btn btn-sm" href="order-details.html?id=${o.id}">View</a></td></tr>`;}).join('');
 }
-function generateMonthlyReportPDF(){
- const rows=repState.orders.filter(inRange),sum=rows.reduce((a,o)=>{const c=calc(o);a.t+=c.total;a.p+=c.paid;a.d+=c.disc;a.b+=c.balance;return a;},{t:0,p:0,d:0,b:0}),{jsPDF}=window.jspdf,doc=new jsPDF({unit:'pt',format:'a4'});
- doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('MONTHLY PAYMENT REPORT',40,44);doc.setFontSize(10);doc.setFont('helvetica','normal');doc.text(`Period: ${formatDateDisplay(repState.from)} - ${formatDateDisplay(repState.to)}`,40,62);
- doc.autoTable({startY:85,head:[['Order','Customer','Date','Total','Paid','Discount','Balance','Status']],body:rows.map(o=>{const c=calc(o);return[shortId(o.id),o.customers?.name||o.customer_name||'',formatDateDisplay(o.order_date),money(c.total),money(c.paid),money(c.disc),money(c.balance),c.balance<=0?'Fully Paid':c.effective>0?'Partially Paid':'Unpaid'];}),theme:'grid',styles:{fontSize:7}});
- let y=(doc.lastAutoTable?.finalY||120)+25;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text(`TOTAL AMOUNT: ${money(sum.t)}`,40,y);y+=15;doc.text(`TOTAL PAID: ${money(sum.p)}`,40,y);y+=15;doc.text(`TOTAL DISCOUNT: ${money(sum.d)}`,40,y);y+=15;doc.text(`UNPAID AMOUNT: ${money(sum.b)}`,40,y);
- doc.save(`payment-report-${repState.from}-to-${repState.to}.pdf`);toast('Monthly report PDF generated','success');
+async function generateMonthlyReportPDF() {
+
+  // =====================================================
+  // GET REPORT DATA
+  // =====================================================
+
+  const rows = repState.orders.filter(inRange);
+
+  const sum = rows.reduce(
+    (a, o) => {
+
+      const c = calc(o);
+
+      a.t += Number(c.total || 0);
+      a.p += Number(c.paid || 0);
+      a.d += Number(c.disc || 0);
+      a.b += Number(c.balance || 0);
+
+      return a;
+
+    },
+    {
+      t: 0,
+      p: 0,
+      d: 0,
+      b: 0
+    }
+  );
+
+
+  // =====================================================
+  // CREATE PDF
+  // =====================================================
+
+  const { jsPDF } = window.jspdf;
+
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'pt',
+    format: 'a4'
+  });
+
+
+  const pageWidth =
+    doc.internal.pageSize.getWidth();
+
+  const pageHeight =
+    doc.internal.pageSize.getHeight();
+
+
+  // =====================================================
+  // PDF MONEY FORMAT
+  // =====================================================
+
+  // Do NOT use money() inside the PDF.
+  // This keeps numbers clear and prevents broken spacing.
+
+  const pdfMoney = amount => {
+
+    const value =
+      Number(amount || 0);
+
+    return `Rs. ${value.toLocaleString(
+      'en-IN',
+      {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }
+    )}`;
+
+  };
+
+
+  // =====================================================
+  // LOAD LOGO
+  // =====================================================
+
+  let logo = null;
+
+  try {
+
+    logo = await loadPDFLogo('logo.png');
+
+  } catch (error) {
+
+    console.warn(
+      'Logo could not be loaded:',
+      error
+    );
+
+  }
+
+
+  // =====================================================
+  // WATERMARK
+  // =====================================================
+
+  if (logo) {
+
+    try {
+
+      if (doc.GState) {
+
+        doc.saveGraphicsState();
+
+        doc.setGState(
+          new doc.GState({
+            opacity: 0.06
+          })
+        );
+
+        doc.addImage(
+          logo,
+          'PNG',
+          (pageWidth - 300) / 2,
+          (pageHeight - 300) / 2,
+          300,
+          300
+        );
+
+        doc.restoreGraphicsState();
+
+      } else {
+
+        doc.addImage(
+          logo,
+          'PNG',
+          (pageWidth - 300) / 2,
+          (pageHeight - 300) / 2,
+          300,
+          300
+        );
+
+      }
+
+    } catch (error) {
+
+      console.warn(
+        'Watermark could not be added:',
+        error
+      );
+
+    }
+  }
+
+
+  // =====================================================
+  // HEADER LOGO
+  // =====================================================
+
+  if (logo) {
+
+    try {
+
+      doc.addImage(
+        logo,
+        'PNG',
+        35,
+        25,
+        65,
+        65
+      );
+
+    } catch (error) {
+
+      console.warn(
+        'Header logo could not be added:',
+        error
+      );
+
+    }
+  }
+
+
+  // =====================================================
+  // RESET TEXT SPACING
+  // =====================================================
+
+  doc.setCharSpace(0);
+
+  doc.setTextColor(
+    35,
+    35,
+    35
+  );
+
+
+  // =====================================================
+  // BUSINESS HEADER
+  // =====================================================
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.setFontSize(17);
+
+  doc.text(
+    'O. S Kitchen Caters And Events',
+    115,
+    42
+  );
+
+
+  doc.setFont(
+    'helvetica',
+    'normal'
+  );
+
+  doc.setFontSize(9);
+
+  doc.text(
+    'Pothencode, Kerala, 695584',
+    115,
+    58
+  );
+
+  doc.text(
+    'Mobile: 9745445594',
+    115,
+    72
+  );
+
+  doc.text(
+    'Email: mubeenpallinada143@gmail.com',
+    115,
+    86
+  );
+
+
+  // =====================================================
+  // REPORT TITLE - RIGHT
+  // =====================================================
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.setFontSize(16);
+
+  doc.text(
+    'MONTHLY PAYMENT REPORT',
+    pageWidth - 40,
+    42,
+    {
+      align: 'right'
+    }
+  );
+
+
+  doc.setFont(
+    'helvetica',
+    'normal'
+  );
+
+  doc.setFontSize(9);
+
+  doc.text(
+    `Period: ${formatDateDisplay(
+      repState.from
+    )} - ${formatDateDisplay(
+      repState.to
+    )}`,
+    pageWidth - 40,
+    60,
+    {
+      align: 'right'
+    }
+  );
+
+
+  doc.text(
+    `Generated: ${new Date().toLocaleDateString(
+      'en-IN'
+    )}`,
+    pageWidth - 40,
+    75,
+    {
+      align: 'right'
+    }
+  );
+
+
+  // =====================================================
+  // HEADER LINE
+  // =====================================================
+
+  doc.setDrawColor(
+    47,
+    100,
+    89
+  );
+
+  doc.setLineWidth(1);
+
+  doc.line(
+    35,
+    100,
+    pageWidth - 35,
+    100
+  );
+
+
+  // =====================================================
+  // TABLE DATA
+  // =====================================================
+
+  const tableBody = rows.map(o => {
+
+    const c = calc(o);
+
+    let status = 'Unpaid';
+
+
+    if (
+      c.balance <= 0 &&
+      c.total > 0
+    ) {
+
+      status = 'Fully Paid';
+
+    } else if (
+      c.effective > 0 &&
+      c.balance > 0
+    ) {
+
+      status = 'Partially Paid';
+
+    }
+
+
+    return [
+
+      shortId(o.id),
+
+      o.customers?.name ||
+      o.customer_name ||
+      '—',
+
+      formatDateDisplay(
+        o.order_date
+      ),
+
+      pdfMoney(c.total),
+
+      pdfMoney(c.paid),
+
+      pdfMoney(c.disc),
+
+      pdfMoney(c.balance),
+
+      status
+
+    ];
+
+  });
+
+
+  // =====================================================
+  // REPORT TABLE
+  // =====================================================
+
+  doc.autoTable({
+
+    startY: 115,
+
+    margin: {
+      top: 115,
+      left: 35,
+      right: 35,
+      bottom: 45
+    },
+
+
+    head: [[
+      'Order',
+      'Customer',
+      'Date',
+      'Total',
+      'Paid',
+      'Discount',
+      'Balance',
+      'Status'
+    ]],
+
+
+    body: tableBody,
+
+
+    theme: 'grid',
+
+
+    // ===================================================
+    // GENERAL STYLES
+    // ===================================================
+
+    styles: {
+
+      font: 'helvetica',
+
+      fontStyle: 'normal',
+
+      fontSize: 8,
+
+      cellPadding: 5,
+
+      overflow: 'linebreak',
+
+      valign: 'middle',
+
+      lineWidth: 0.4,
+
+      lineColor: [
+        205,
+        205,
+        205
+      ],
+
+      textColor: [
+        35,
+        35,
+        35
+      ]
+
+    },
+
+
+    // ===================================================
+    // HEADER STYLES
+    // ===================================================
+
+    headStyles: {
+
+      font: 'helvetica',
+
+      fontStyle: 'bold',
+
+      fontSize: 8,
+
+      halign: 'center',
+
+      valign: 'middle',
+
+      cellPadding: 6,
+
+      textColor: [
+        255,
+        255,
+        255
+      ],
+
+      fillColor: [
+        47,
+        100,
+        89
+      ]
+
+    },
+
+
+    // ===================================================
+    // BODY
+    // ===================================================
+
+    bodyStyles: {
+
+      minCellHeight: 23,
+
+      valign: 'middle'
+
+    },
+
+
+    alternateRowStyles: {
+
+      fillColor: [
+        248,
+        248,
+        248
+      ]
+
+    },
+
+
+    // ===================================================
+    // COLUMN WIDTHS
+    // ===================================================
+
+    columnStyles: {
+
+      // Order
+      0: {
+
+        cellWidth: 70,
+
+        halign: 'center'
+
+      },
+
+
+      // Customer
+      1: {
+
+        cellWidth: 125,
+
+        halign: 'left',
+
+        overflow: 'linebreak'
+
+      },
+
+
+      // Date
+      2: {
+
+        cellWidth: 75,
+
+        halign: 'center'
+
+      },
+
+
+      // Total
+      3: {
+
+        cellWidth: 90,
+
+        halign: 'right'
+
+      },
+
+
+      // Paid
+      4: {
+
+        cellWidth: 90,
+
+        halign: 'right'
+
+      },
+
+
+      // Discount
+      5: {
+
+        cellWidth: 90,
+
+        halign: 'right'
+
+      },
+
+
+      // Balance
+      6: {
+
+        cellWidth: 95,
+
+        halign: 'right'
+
+      },
+
+
+      // Status
+      7: {
+
+        cellWidth: 100,
+
+        halign: 'center'
+
+      }
+
+    },
+
+
+    // ===================================================
+    // IMPORTANT NUMBER FIX
+    // ===================================================
+
+    didParseCell: function (data) {
+
+      // Always reset character spacing
+      doc.setCharSpace(0);
+
+
+      // Amount columns
+      if (
+        data.section === 'body' &&
+        [3, 4, 5, 6].includes(
+          data.column.index
+        )
+      ) {
+
+        data.cell.styles.halign =
+          'right';
+
+        data.cell.styles.fontSize =
+          8;
+
+        data.cell.styles.fontStyle =
+          'normal';
+
+      }
+
+
+      // Order number
+      if (
+        data.section === 'body' &&
+        data.column.index === 0
+      ) {
+
+        data.cell.styles.fontSize =
+          7.5;
+
+      }
+
+
+      // Status
+      if (
+        data.section === 'body' &&
+        data.column.index === 7
+      ) {
+
+        data.cell.styles.fontSize =
+          7.5;
+
+        data.cell.styles.fontStyle =
+          'bold';
+
+      }
+
+    },
+
+
+    // ===================================================
+    // RESET CHARACTER SPACING
+    // ===================================================
+
+    willDrawCell: function () {
+
+      doc.setCharSpace(0);
+
+    },
+
+
+    didDrawCell: function () {
+
+      doc.setCharSpace(0);
+
+    }
+
+  });
+
+
+  // =====================================================
+  // SUMMARY
+  // =====================================================
+
+  let y =
+    (doc.lastAutoTable?.finalY || 150) + 25;
+
+
+  // If summary is too close to bottom,
+  // create a new page.
+
+  if (
+    y > pageHeight - 125
+  ) {
+
+    doc.addPage();
+
+    y = 50;
+
+  }
+
+
+  // =====================================================
+  // SUMMARY TITLE
+  // =====================================================
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.setFontSize(11);
+
+  doc.setCharSpace(0);
+
+  doc.text(
+    'REPORT SUMMARY',
+    40,
+    y
+  );
+
+
+  y += 22;
+
+
+  // =====================================================
+  // SUMMARY BOX
+  // =====================================================
+
+  const boxX = 40;
+
+  const boxY = y;
+
+  const boxW = 330;
+
+  const boxH = 105;
+
+
+  doc.setDrawColor(
+    210,
+    210,
+    210
+  );
+
+  doc.setFillColor(
+    248,
+    248,
+    248
+  );
+
+  doc.roundedRect(
+    boxX,
+    boxY,
+    boxW,
+    boxH,
+    6,
+    6,
+    'FD'
+  );
+
+
+  // =====================================================
+  // SUMMARY TEXT
+  // =====================================================
+
+  let sy =
+    boxY + 22;
+
+
+  doc.setFont(
+    'helvetica',
+    'normal'
+  );
+
+  doc.setFontSize(9);
+
+  doc.setCharSpace(0);
+
+
+  // Total
+
+  doc.text(
+    'Total Amount',
+    boxX + 15,
+    sy
+  );
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.text(
+    pdfMoney(sum.t),
+    boxX + boxW - 15,
+    sy,
+    {
+      align: 'right'
+    }
+  );
+
+
+  sy += 21;
+
+
+  // Paid
+
+  doc.setFont(
+    'helvetica',
+    'normal'
+  );
+
+  doc.text(
+    'Total Paid',
+    boxX + 15,
+    sy
+  );
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.text(
+    pdfMoney(sum.p),
+    boxX + boxW - 15,
+    sy,
+    {
+      align: 'right'
+    }
+  );
+
+
+  sy += 21;
+
+
+  // Discount
+
+  doc.setFont(
+    'helvetica',
+    'normal'
+  );
+
+  doc.text(
+    'Total Discount',
+    boxX + 15,
+    sy
+  );
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.text(
+    pdfMoney(sum.d),
+    boxX + boxW - 15,
+    sy,
+    {
+      align: 'right'
+    }
+  );
+
+
+  sy += 21;
+
+
+  // Unpaid
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.text(
+    'Unpaid Amount',
+    boxX + 15,
+    sy
+  );
+
+  doc.text(
+    pdfMoney(sum.b),
+    boxX + boxW - 15,
+    sy,
+    {
+      align: 'right'
+    }
+  );
+
+
+  // =====================================================
+  // FOOTER
+  // =====================================================
+
+  doc.setCharSpace(0);
+
+  doc.setFont(
+    'helvetica',
+    'normal'
+  );
+
+  doc.setFontSize(8);
+
+  doc.setTextColor(
+    110,
+    110,
+    110
+  );
+
+
+  doc.text(
+    'O. S Kitchen Caters And Events',
+    35,
+    pageHeight - 20
+  );
+
+
+  doc.text(
+    'Pothencode, Kerala, 695584',
+    pageWidth / 2,
+    pageHeight - 20,
+    {
+      align: 'center'
+    }
+  );
+
+
+  doc.text(
+    `Page 1`,
+    pageWidth - 35,
+    pageHeight - 20,
+    {
+      align: 'right'
+    }
+  );
+
+
+  // =====================================================
+  // SAVE PDF
+  // =====================================================
+
+  doc.save(
+    `payment-report-${repState.from}-to-${repState.to}.pdf`
+  );
+
+
+  // =====================================================
+  // SUCCESS MESSAGE
+  // =====================================================
+
+  toast(
+    'Monthly report PDF generated',
+    'success'
+  );
+
+}
+function loadPDFLogo(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+
+    img.onload = () => {
+      resolve(img);
+    };
+
+    img.onerror = (error) => {
+      console.error('Logo loading failed:', src, error);
+      resolve(null);
+    };
+
+    img.src = src;
+  });
 }
 function shortId(id){return 'ORD-'+id.slice(0,8).toUpperCase();}

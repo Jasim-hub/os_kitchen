@@ -187,12 +187,60 @@ function renderFormMode() {
     <a class="btn" href="${S.mode === 'edit' ? `order-details.html?id=${S.id}` : 'orders.html'}">Cancel</a>
   `;
 
-  S.formItems = S.items.map(item => ({
+  S.formItems = S.items.map(item => {
+
+  const foodItem = S.foodItems.find(
+    x => String(x.id) === String(item.food_item_id)
+  );
+
+  const group = S.foodGroups.find(
+    x => String(x.id) === String(
+      item.group_id || foodItem?.group_id
+    )
+  );
+
+  const category = S.foodCategories.find(
+    x => String(x.id) === String(
+      item.category_id || group?.category_id
+    )
+  );
+
+  return {
+
     rowId: item.id,
+
     foodItemId: item.food_item_id,
-    itemName: item.item_name,
+
+    itemName:
+      item.item_name ||
+      foodItem?.name ||
+      'Unknown Item',
+
+    categoryId:
+      item.category_id ||
+      category?.id ||
+      null,
+
+    categoryName:
+      item.category_name ||
+      category?.name ||
+      'Other',
+
+    groupId:
+      item.group_id ||
+      group?.id ||
+      null,
+
+    groupName:
+      item.group_name ||
+      group?.name ||
+      'Other',
+
     quantity: 1
-  }));
+
+  };
+
+});
 
   document.getElementById('pageContent').innerHTML = `
     <form id="orderForm" class="new-order-form">
@@ -233,10 +281,32 @@ function renderFormMode() {
             <input id="custAddress" type="text" value="${escapeHtml(c.address || '')}" placeholder="Enter address" autocomplete="off">
           </div>
 
-          <div class="form-group">
-            <label class="f-label">Event / Function</label>
-            <input id="eventName" type="text" value="${escapeHtml(o.event_name || '')}" placeholder="Wedding, Birthday..." autocomplete="off">
-          </div>
+         <div class="form-group">
+  <label class="f-label">Event / Function</label>
+
+  <select id="eventName">
+    <option value="">Select Event / Function</option>
+
+    ${[
+      'Wedding',
+      'Birthday',
+      'Engagement',
+      'Nikah',
+      'Reception',
+      'Corporate Event',
+      'Anniversary',
+      'Other'
+    ].map(event => `
+      <option
+        value="${event}"
+        ${o.event_name === event ? 'selected' : ''}
+      >
+        ${event}
+      </option>
+    `).join('')}
+
+  </select>
+</div>
 
           <div class="form-group">
             <label class="f-label">Event Location</label>
@@ -308,9 +378,9 @@ function renderFormMode() {
     <select id="itemCategorySelect">
       <option value="">Select category</option>
 
-      ${S.foodCategories.map(x => `
-        <option value="${x.id}">
-          ${escapeHtml(x.name)}
+      ${S.foodCategories.map(category => `
+        <option value="${category.id}">
+          ${escapeHtml(category.name)}
         </option>
       `).join('')}
 
@@ -378,9 +448,7 @@ function renderFormMode() {
 
        
 
-        <div id="selectedFoodItems" class="selected-food-items">
-          ${renderFormFoodItems()}
-        </div>
+        <div id="selectedFoodItems" class="selected-food-items"></div>
       </fieldset>
 
       <fieldset class="order-fieldset">
@@ -398,10 +466,17 @@ function renderFormMode() {
     </form>
   `;
 
-  document.getElementById('customerSelect').onchange = onCustomerSelectChange;
-  setupFoodPicker();
-  recalcTotals();
-  document.getElementById('orderForm').onsubmit = saveOrder;
+  document.getElementById('customerSelect').onchange =
+  onCustomerSelectChange;
+
+setupFoodPicker();
+
+renderFormFoodItems();
+
+recalcTotals();
+
+document.getElementById('orderForm').onsubmit =
+  saveOrder;
 }
 function onCustomerSelectChange(e){const c=S.customers.find(x=>x.id===e.target.value);if(!c)return;document.getElementById('custName').value=c.name||'';document.getElementById('custPhone').value=c.phone||'';document.getElementById('custEmail').value=c.email||'';document.getElementById('custAddress').value=c.address||'';}
 let itemSeq=0;
@@ -428,50 +503,62 @@ function setupFoodPicker() {
   const selectAll =
     document.getElementById('selectAllItems');
 
-  // -----------------------------
-  // Category
-  // -----------------------------
+  if (!categorySelect || !groupSelect) {
+    console.error('Food picker elements missing:', {
+      categorySelect,
+      groupSelect
+    });
+    return;
+  }
 
-  categorySelect.onchange = () => {
+  // CATEGORY
+  categorySelect.addEventListener('change', function () {
 
-    fillOrderGroups(categorySelect.value);
+    const categoryId = this.value;
 
-    resetOrderItems();
+    console.log('CATEGORY SELECTED:', categoryId);
 
-  };
+    // Reset ONLY item selection
+    resetItemSelection();
 
+    // Load groups
+    fillOrderGroups(categoryId);
 
-  // -----------------------------
-  // Group
-  // -----------------------------
-
-  groupSelect.onchange = () => {
-
-    fillOrderItems(groupSelect.value);
-
-  };
-
-
-  // -----------------------------
-  // Open / Close dropdown
-  // -----------------------------
-
-  trigger.onclick = (e) => {
-
-    e.stopPropagation();
-
-    dropdown.classList.toggle('open');
-
-  };
+  });
 
 
-  // -----------------------------
-  // Close when clicking outside
-  // -----------------------------
+  // GROUP
+  groupSelect.addEventListener('change', function () {
 
-  document.addEventListener('click', (e) => {
+    const groupId = this.value;
 
-    if (!dropdown.contains(e.target)) {
+    console.log('GROUP SELECTED:', groupId);
+
+    fillOrderItems(groupId);
+
+  });
+
+
+  // OPEN/CLOSE ITEM DROPDOWN
+  if (trigger && dropdown) {
+
+    trigger.addEventListener('click', function (e) {
+
+      e.stopPropagation();
+
+      if (groupSelect.value) {
+        dropdown.classList.toggle('open');
+      }
+
+    });
+
+  }
+
+
+  // CLOSE OUTSIDE
+  document.addEventListener('click', function (e) {
+
+    if (dropdown && !dropdown.contains(e.target)) {
 
       dropdown.classList.remove('open');
 
@@ -480,88 +567,161 @@ function setupFoodPicker() {
   });
 
 
-  // -----------------------------
-  // Select All
-  // -----------------------------
+  // SELECT ALL
+  if (selectAll) {
 
-  selectAll.onchange = () => {
+    selectAll.addEventListener('change', function () {
 
-    const checkboxes =
-      document.querySelectorAll(
-        '#itemCheckboxList input[type="checkbox"]'
-      );
-
-    checkboxes.forEach(cb => {
-
-      cb.checked = selectAll.checked;
-
-    });
-
-    updateItemSelection();
-
-  };
-
-
-  // -----------------------------
-  // Add selected items
-  // -----------------------------
-
-  addButton.onclick = () => {
-
-    const selected =
-      Array.from(
+      const checkboxes =
         document.querySelectorAll(
-          '#itemCheckboxList input[type="checkbox"]:checked'
-        )
-      ).map(cb => cb.value);
+          '#itemCheckboxList input[type="checkbox"]'
+        );
 
-    if (!selected.length) return;
+      checkboxes.forEach(cb => {
+        cb.checked = this.checked;
+      });
 
-
-    selected.forEach(foodItemId => {
-
-      addFoodItem(foodItemId);
+      updateItemSelection();
 
     });
 
-
-    // Clear selections
-
-    document
-      .querySelectorAll(
-        '#itemCheckboxList input[type="checkbox"]'
-      )
-      .forEach(cb => cb.checked = false);
+  }
 
 
-    selectAll.checked = false;
+  // ADD ITEMS
+  if (addButton) {
 
-    updateItemSelection();
+    addButton.addEventListener('click', function () {
 
-    dropdown.classList.remove('open');
+      const selected =
+        Array.from(
+          document.querySelectorAll(
+            '#itemCheckboxList input[type="checkbox"]:checked'
+          )
+        ).map(cb => cb.value);
 
-  };
+      console.log('SELECTED ITEMS:', selected);
+
+      if (!selected.length) {
+        toast('Please select at least one item', 'error');
+        return;
+      }
+
+      selected.forEach(foodItemId => {
+
+        addFoodItem(foodItemId);
+
+      });
+
+
+      // Clear selection
+      document
+        .querySelectorAll(
+          '#itemCheckboxList input[type="checkbox"]'
+        )
+        .forEach(cb => {
+          cb.checked = false;
+        });
+
+
+      if (selectAll) {
+        selectAll.checked = false;
+      }
+
+      updateItemSelection();
+
+      if (dropdown) {
+        dropdown.classList.remove('open');
+      }
+
+    });
+
+  }
 
 }
 
 function fillOrderGroups(categoryId) {
-  const select = document.getElementById('itemGroupSelect');
-  select.innerHTML = '<option value="">Select group</option>';
 
-  if (!categoryId) {
-    select.disabled = true;
+  const groupSelect =
+    document.getElementById('itemGroupSelect');
+
+  if (!groupSelect) {
+    console.error('itemGroupSelect not found');
     return;
   }
 
-  const groups = S.foodGroups.filter(
-    group => String(group.category_id) === String(categoryId)
+
+  console.log('Loading groups for category:', categoryId);
+
+  // Reset group
+  groupSelect.innerHTML =
+    '<option value="">Select group</option>';
+
+  groupSelect.disabled = true;
+
+
+  if (!categoryId) {
+    console.log('No category selected');
+    return;
+  }
+
+
+  console.log('ALL GROUPS:', S.foodGroups);
+
+
+  const groups =
+    S.foodGroups.filter(group => {
+
+      console.log(
+        'Checking group:',
+        group.name,
+        'category_id:',
+        group.category_id,
+        'selected:',
+        categoryId
+      );
+
+      return String(group.category_id) ===
+             String(categoryId);
+
+    });
+
+
+  console.log('MATCHED GROUPS:', groups);
+
+
+  if (!groups.length) {
+
+    groupSelect.innerHTML =
+      '<option value="">No groups available</option>';
+
+    groupSelect.disabled = true;
+
+    console.warn(
+      'No groups found for category:',
+      categoryId
+    );
+
+    return;
+  }
+
+
+  groupSelect.innerHTML =
+    '<option value="">Select group</option>' +
+    groups.map(group => `
+      <option value="${group.id}">
+        ${escapeHtml(group.name)}
+      </option>
+    `).join('');
+
+
+  groupSelect.disabled = false;
+
+  console.log(
+    'GROUP DROPDOWN ENABLED:',
+    groups.length
   );
 
-  select.innerHTML += groups.map(group => `
-    <option value="${group.id}">${escapeHtml(group.name)}</option>
-  `).join('');
-
-  select.disabled = groups.length === 0;
 }
 
 function fillOrderItems(groupId) {
@@ -710,7 +870,7 @@ function updateItemSelection() {
 
 }
 
-function resetOrderItems() {
+function resetItemSelection() {
 
   const list =
     document.getElementById('itemCheckboxList');
@@ -724,55 +884,111 @@ function resetOrderItems() {
   const text =
     document.getElementById('itemDropdownText');
 
-
   if (list) {
-
     list.innerHTML = '';
-
   }
 
   if (selectAll) {
-
     selectAll.checked = false;
-
   }
 
   if (addButton) {
-
     addButton.disabled = true;
-
   }
 
   if (text) {
-
     text.textContent = 'Select items';
-
   }
 
 }
 
 
 function addFoodItem(foodItemId) {
-  const foodItem = S.foodItems.find(
-    item => String(item.id) === String(foodItemId)
-  );
 
-  if (!foodItem) return;
+  const categorySelect =
+    document.getElementById('itemCategorySelect');
 
-  const exists = S.formItems.some(
-    item => String(item.foodItemId) === String(foodItem.id)
-  );
+  const groupSelect =
+    document.getElementById('itemGroupSelect');
 
-  if (exists) {
-    toast('This item is already added.', 'error');
+  if (!categorySelect || !groupSelect) {
+    console.error('Food selectors not found:', {
+      categorySelect,
+      groupSelect
+    });
+
+    toast('Food selectors are missing', 'error');
     return;
   }
 
+  const categoryId = categorySelect.value;
+  const groupId = groupSelect.value;
+
+  if (!categoryId) {
+    toast('Please select a category', 'error');
+    return;
+  }
+
+  if (!groupId) {
+    toast('Please select a group', 'error');
+    return;
+  }
+
+  if (!foodItemId) {
+    return;
+  }
+
+  const category = S.foodCategories.find(
+    x => String(x.id) === String(categoryId)
+  );
+
+  const group = S.foodGroups.find(
+    x => String(x.id) === String(groupId)
+  );
+
+  const foodItem = S.foodItems.find(
+    x => String(x.id) === String(foodItemId)
+  );
+
+  if (!category || !group || !foodItem) {
+
+    console.error('Food data not found:', {
+      category,
+      group,
+      foodItem
+    });
+
+    toast('Food item information not found', 'error');
+    return;
+  }
+
+  // Prevent duplicate
+  const exists = S.formItems.some(
+    x => String(x.foodItemId) === String(foodItem.id)
+  );
+
+  if (exists) {
+    toast(`${foodItem.name} is already added`, 'error');
+    return;
+  }
+
+  // Add selected food item
   S.formItems.push({
-    rowId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+
+    rowId: `tmp-${Date.now()}-${++itemSeq}`,
+
     foodItemId: foodItem.id,
+
     itemName: foodItem.name,
+
+    categoryId: category.id,
+    categoryName: category.name,
+
+    groupId: group.id,
+    groupName: group.name,
+
     quantity: 1
+
   });
 
   renderFormFoodItems();
@@ -944,8 +1160,10 @@ async function saveOrder(e) {
       additional_charge: additional,
       total_amount: total,
       status,
-      event_name: document.getElementById('eventName').value.trim(),
-      event_location: document.getElementById('eventLocation').value.trim(),
+      event_name:
+  document.getElementById('eventName')?.value || null,
+      event_location:
+  document.getElementById('eventLocation')?.value.trim() || null,
       notes: document.getElementById('orderNotes').value.trim()
     };
 
@@ -984,23 +1202,47 @@ async function saveOrder(e) {
     }
 
     for (const item of S.formItems) {
-      const itemPayload = {
-        order_id: orderId,
-        food_item_id: item.foodItemId,
-        item_name: item.itemName,
-        quantity: 1
-      };
 
-      const query = String(item.rowId).startsWith('tmp-')
-        ? window.db.from('order_items').insert(itemPayload)
-        : window.db
-            .from('order_items')
-            .update(itemPayload)
-            .eq('id', item.rowId);
+  const itemPayload = {
+    order_id: orderId,
 
-      const { error } = await query;
-      if (error) throw error;
-    }
+    // Food item
+    food_item_id: item.foodItemId,
+    item_name: item.itemName,
+
+    // Category
+    category_id: item.categoryId,
+    category_name: item.categoryName,
+
+    // Group
+    group_id: item.groupId,
+    group_name: item.groupName,
+
+    // Quantity
+    quantity: 1
+  };
+
+  const query =
+    String(item.rowId).startsWith('tmp-')
+      ? window.db
+          .from('order_items')
+          .insert(itemPayload)
+      : window.db
+          .from('order_items')
+          .update(itemPayload)
+          .eq('id', item.rowId);
+
+  const { error } = await query;
+
+  if (error) {
+    console.error(
+      'Order item save error:',
+      error
+    );
+
+    throw error;
+  }
+}
 
     toast(
       S.mode === 'edit' ? 'Order updated' : 'Order created',
@@ -1035,9 +1277,9 @@ function billHTML(){
 function printBill(){document.getElementById('printArea').innerHTML=billHTML();window.print();}
 async function generatePDF() {
 
-  // =========================================================
+  // =====================================================
   // DATA
-  // =========================================================
+  // =====================================================
 
   const o = S.order;
   const c = S.customer || {};
@@ -1051,11 +1293,6 @@ async function generatePDF() {
     format: 'a4'
   });
 
-
-  // =========================================================
-  // PAGE SIZE
-  // =========================================================
-
   const pageWidth =
     doc.internal.pageSize.getWidth();
 
@@ -1063,20 +1300,26 @@ async function generatePDF() {
     doc.internal.pageSize.getHeight();
 
 
-  // =========================================================
-  // SETTINGS
-  // =========================================================
+  // =====================================================
+  // MONEY FORMAT
+  // =====================================================
 
-  const settings = getSettings();
+  const pdfMoney = amount => {
 
-  const businessName =
-    settings.businessName ||
-    'OS EVENTS & KITCHEN';
+    return `Rs. ${Number(amount || 0).toLocaleString(
+      'en-IN',
+      {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }
+    )}`;
+
+  };
 
 
-  // =========================================================
+  // =====================================================
   // LOAD LOGO
-  // =========================================================
+  // =====================================================
 
   let logo = null;
 
@@ -1094,9 +1337,9 @@ async function generatePDF() {
   }
 
 
-  // =========================================================
+  // =====================================================
   // WATERMARK
-  // =========================================================
+  // =====================================================
 
   if (logo) {
 
@@ -1108,31 +1351,20 @@ async function generatePDF() {
 
         doc.setGState(
           new doc.GState({
-            opacity: 0.07
+            opacity: 0.06
           })
         );
 
         doc.addImage(
           logo,
           'PNG',
-          (pageWidth - 330) / 2,
-          (pageHeight - 330) / 2,
+          (pageWidth - 280) / 2,
           330,
-          330
+          280,
+          280
         );
 
         doc.restoreGraphicsState();
-
-      } else {
-
-        doc.addImage(
-          logo,
-          'PNG',
-          (pageWidth - 330) / 2,
-          (pageHeight - 330) / 2,
-          330,
-          330
-        );
 
       }
 
@@ -1144,12 +1376,13 @@ async function generatePDF() {
       );
 
     }
+
   }
 
 
-  // =========================================================
+  // =====================================================
   // HEADER LOGO
-  // =========================================================
+  // =====================================================
 
   if (logo) {
 
@@ -1158,7 +1391,7 @@ async function generatePDF() {
       doc.addImage(
         logo,
         'PNG',
-        40,
+        35,
         25,
         65,
         65
@@ -1172,12 +1405,13 @@ async function generatePDF() {
       );
 
     }
+
   }
 
 
-  // =========================================================
-  // RESET TEXT SPACING
-  // =========================================================
+  // =====================================================
+  // RESET PDF TEXT
+  // =====================================================
 
   doc.setCharSpace(0);
 
@@ -1188,9 +1422,9 @@ async function generatePDF() {
   );
 
 
-  // =========================================================
-  // HEADER
-  // =========================================================
+  // =====================================================
+  // BUSINESS HEADER
+  // =====================================================
 
   doc.setFont(
     'helvetica',
@@ -1200,9 +1434,9 @@ async function generatePDF() {
   doc.setFontSize(17);
 
   doc.text(
-    businessName,
-    120,
-    48
+    'O. S Kitchen Caters And Events',
+    115,
+    42
   );
 
 
@@ -1211,18 +1445,134 @@ async function generatePDF() {
     'normal'
   );
 
-  doc.setFontSize(10);
+  doc.setFontSize(9);
+
+  doc.text(
+    'Pothencode, Kerala, 695584',
+    115,
+    58
+  );
+
+  doc.text(
+    'Mobile: 9745445594',
+    115,
+    72
+  );
+
+  doc.text(
+    'Email: mubeenpallinada143@gmail.com',
+    115,
+    86
+  );
+
+
+  // =====================================================
+  // PAYMENT BILL TITLE
+  // =====================================================
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.setFontSize(15);
 
   doc.text(
     'PAYMENT BILL',
-    120,
-    66
+    pageWidth - 35,
+    42,
+    {
+      align: 'right'
+    }
   );
 
 
-  // =========================================================
-  // ORDER DETAILS - RIGHT SIDE
-  // =========================================================
+  doc.setFont(
+    'helvetica',
+    'normal'
+  );
+
+  doc.setFontSize(8.5);
+
+  doc.text(
+    `Order ID: ${shortId(o.id)}`,
+    pageWidth - 35,
+    59,
+    {
+      align: 'right'
+    }
+  );
+
+  doc.text(
+    `Date: ${formatDateDisplay(o.order_date)}`,
+    pageWidth - 35,
+    73,
+    {
+      align: 'right'
+    }
+  );
+
+  doc.text(
+    `Time: ${formatTime12(o.order_time)}`,
+    pageWidth - 35,
+    87,
+    {
+      align: 'right'
+    }
+  );
+
+
+  // =====================================================
+  // HEADER LINE
+  // =====================================================
+
+  doc.setDrawColor(
+    47,
+    100,
+    89
+  );
+
+  doc.setLineWidth(1);
+
+  doc.line(
+    35,
+    103,
+    pageWidth - 35,
+    103
+  );
+
+
+  // =====================================================
+  // CUSTOMER / ORDER DETAILS
+  // =====================================================
+
+  let infoY = 125;
+
+
+  // Customer box
+
+  doc.setFillColor(
+    248,
+    248,
+    248
+  );
+
+  doc.setDrawColor(
+    220,
+    220,
+    220
+  );
+
+  doc.roundedRect(
+    35,
+    infoY,
+    250,
+    75,
+    6,
+    6,
+    'FD'
+  );
+
 
   doc.setFont(
     'helvetica',
@@ -1230,88 +1580,11 @@ async function generatePDF() {
   );
 
   doc.setFontSize(9);
-
-  doc.text(
-    'Order ID',
-    pageWidth - 180,
-    38
-  );
-
-  doc.setFont(
-    'helvetica',
-    'normal'
-  );
-
-  doc.text(
-    shortId(o.id),
-    pageWidth - 110,
-    38
-  );
-
-
-  doc.setFont(
-    'helvetica',
-    'bold'
-  );
-
-  doc.text(
-    'Date',
-    pageWidth - 180,
-    54
-  );
-
-  doc.setFont(
-    'helvetica',
-    'normal'
-  );
-
-  doc.text(
-    formatDateDisplay(o.order_date),
-    pageWidth - 110,
-    54
-  );
-
-
-  doc.setFont(
-    'helvetica',
-    'bold'
-  );
-
-  doc.text(
-    'Time',
-    pageWidth - 180,
-    70
-  );
-
-  doc.setFont(
-    'helvetica',
-    'normal'
-  );
-
-  doc.text(
-    formatTime12(o.order_time),
-    pageWidth - 110,
-    70
-  );
-
-
-  // =========================================================
-  // CUSTOMER SECTION
-  // =========================================================
-
-  doc.setCharSpace(0);
-
-  doc.setFont(
-    'helvetica',
-    'bold'
-  );
-
-  doc.setFontSize(10);
 
   doc.text(
     'CUSTOMER',
-    40,
-    115
+    48,
+    infoY + 18
   );
 
 
@@ -1320,25 +1593,39 @@ async function generatePDF() {
     'normal'
   );
 
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
 
   doc.text(
     `Name: ${c.name || o.customer_name || '—'}`,
-    40,
-    132
+    48,
+    infoY + 35
   );
-
 
   doc.text(
     `Phone: ${c.phone || '—'}`,
-    40,
-    147
+    48,
+    infoY + 51
+  );
+
+  doc.text(
+    `Order: ${shortId(o.id)}`,
+    48,
+    infoY + 67
   );
 
 
-  // =========================================================
-  // ORDER SECTION
-  // =========================================================
+  // Order details box
+
+  doc.roundedRect(
+    305,
+    infoY,
+    pageWidth - 340,
+    75,
+    6,
+    6,
+    'FD'
+  );
+
 
   doc.setFont(
     'helvetica',
@@ -1347,8 +1634,8 @@ async function generatePDF() {
 
   doc.text(
     'ORDER DETAILS',
-    320,
-    115
+    318,
+    infoY + 18
   );
 
 
@@ -1359,419 +1646,563 @@ async function generatePDF() {
 
   doc.text(
     `Guests: ${o.guest_count || 0}`,
-    320,
-    132
+    318,
+    infoY + 35
   );
-
 
   doc.text(
-    `Per Plate: Rs. ${Number(
-      o.per_plate_amount || 0
-    ).toLocaleString('en-IN')}`,
-    320,
-    147
+    `Per Plate: ${pdfMoney(o.per_plate_amount)}`,
+    318,
+    infoY + 51
+  );
+
+  doc.text(
+    `Order Total: ${pdfMoney(ps.total)}`,
+    318,
+    infoY + 67
   );
 
 
-  // =========================================================
-  // ITEM DATA
-  // =========================================================
+  // =====================================================
+  // BUILD FOOD HIERARCHY
+  // =====================================================
 
-  const itemRows =
-    (S.items || []).map(item => {
+  function buildFoodHierarchy() {
 
-      return [
+    const categories = {};
+
+
+    (S.items || []).forEach(item => {
+
+      const category =
+        item.category_name ||
+        item.category ||
+        item.food_category ||
+        'Other';
+
+
+      const group =
+        item.group_name ||
+        item.group ||
+        item.food_group ||
+        'Other';
+
+
+      const itemName =
         item.item_name ||
         item.name ||
-        '—'
-      ];
+        'Unnamed Item';
+
+
+      if (!categories[category]) {
+
+        categories[category] = {};
+
+      }
+
+
+      if (!categories[category][group]) {
+
+        categories[category][group] = [];
+
+      }
+
+
+      if (
+        !categories[category][group]
+          .includes(itemName)
+      ) {
+
+        categories[category][group]
+          .push(itemName);
+
+      }
 
     });
 
 
-  // =========================================================
-  // ITEMS TABLE
-  // =========================================================
+    return categories;
 
-  doc.setCharSpace(0);
+  }
 
 
-  doc.autoTable({
-
-    startY: 170,
-
-    margin: {
-      left: 40,
-      right: 40,
-      top: 170,
-      bottom: 50
-    },
+  const foodHierarchy =
+    buildFoodHierarchy();
 
 
-    // -------------------------------------------------------
-    // HEADER
-    // -------------------------------------------------------
+  // =====================================================
+  // FOOD ITEMS TITLE
+  // =====================================================
 
-    head: [
-      ['Food Items']
-    ],
-
-
-    // -------------------------------------------------------
-    // BODY
-    // -------------------------------------------------------
-
-    body:
-      itemRows.length
-        ? itemRows
-        : [['No items']],
+  let foodY =
+    infoY + 95;
 
 
-    theme: 'grid',
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.setFontSize(11);
+
+  doc.setTextColor(
+    47,
+    100,
+    89
+  );
+
+  doc.text(
+    'FOOD ITEMS',
+    35,
+    foodY
+  );
 
 
-    // -------------------------------------------------------
-    // GENERAL STYLE
-    // -------------------------------------------------------
-
-    styles: {
-
-      font: 'helvetica',
-
-      fontStyle: 'normal',
-
-      fontSize: 9,
-
-      cellPadding: 6,
-
-      overflow: 'linebreak',
-
-      valign: 'middle',
-
-      halign: 'left',
-
-      lineWidth: 0.4,
-
-      lineColor: [
-        210,
-        210,
-        210
-      ],
-
-      textColor: [
-        35,
-        35,
-        35
-      ]
-
-    },
+  foodY += 12;
 
 
-    // -------------------------------------------------------
-    // HEADER STYLE
-    // -------------------------------------------------------
+  // =====================================================
+  // FOOD ITEMS BOX
+  // =====================================================
 
-    headStyles: {
+  const foodBoxX = 35;
 
-      font: 'helvetica',
-
-      fontStyle: 'bold',
-
-      fontSize: 9,
-
-      halign: 'left',
-
-      valign: 'middle',
-
-      cellPadding: 7,
-
-      textColor: [
-        255,
-        255,
-        255
-      ],
-
-      fillColor: [
-        47,
-        100,
-        89
-      ]
-
-    },
+  const foodBoxW =
+    pageWidth - 70;
 
 
-    // -------------------------------------------------------
-    // COLUMN
-    // -------------------------------------------------------
+  /*
+   * We draw the box first with a reasonable
+   * starting height. If there are many items,
+   * additional pages are handled below.
+   */
 
-    columnStyles: {
+ const foodStartY = foodY + 5;
 
-      0: {
-
-        cellWidth:
-          pageWidth - 80,
-
-        halign: 'left',
-
-        valign: 'middle',
-
-        overflow: 'linebreak'
-
-      }
-
-    },
+let currentY = foodStartY + 18;
 
 
-    // -------------------------------------------------------
-    // MANY ITEM SUPPORT
-    // -------------------------------------------------------
+  // =====================================================
+  // FOOD BOX
+  // =====================================================
 
-    didParseCell: function (data) {
-
-      // Always reset character spacing
-      doc.setCharSpace(0);
+  
 
 
-      if (
-        data.section === 'body' &&
-        data.column.index === 0
-      ) {
+  // =====================================================
+  // FOOD CONTENT
+  // =====================================================
 
-        const text =
-          String(
-            data.cell.raw || ''
+  Object.entries(foodHierarchy)
+    .forEach(
+      ([category, groups]) => {
+
+        // -----------------------------------------------
+        // CATEGORY
+        // -----------------------------------------------
+
+        if (
+          currentY >
+          pageHeight - 70
+        ) {
+
+          doc.addPage();
+
+          currentY = 45;
+
+        }
+
+
+        doc.setFont(
+          'helvetica',
+          'bold'
+        );
+
+        doc.setFontSize(10);
+
+        doc.setTextColor(
+          47,
+          100,
+          89
+        );
+
+        doc.text(
+          category,
+          50,
+          currentY
+        );
+
+
+        currentY += 18;
+
+
+        // -----------------------------------------------
+        // GROUP
+        // -----------------------------------------------
+
+        Object.entries(groups)
+          .forEach(
+            ([group, items]) => {
+
+              if (
+                currentY >
+                pageHeight - 70
+              ) {
+
+                doc.addPage();
+
+                currentY = 45;
+
+              }
+
+
+              doc.setFont(
+                'helvetica',
+                'bold'
+              );
+
+              doc.setFontSize(8.5);
+
+              doc.setTextColor(
+                55,
+                55,
+                55
+              );
+
+              doc.text(
+                `${group}:`,
+                62,
+                currentY
+              );
+
+
+              currentY += 15;
+
+
+              // -----------------------------------------
+              // ITEMS
+              // -----------------------------------------
+
+              doc.setFont(
+                'helvetica',
+                'normal'
+              );
+
+              doc.setFontSize(8);
+
+              doc.setTextColor(
+                45,
+                45,
+                45
+              );
+
+
+              items.forEach(
+                itemName => {
+
+                  if (
+                    currentY >
+                    pageHeight - 70
+                  ) {
+
+                    doc.addPage();
+
+                    currentY = 45;
+
+                  }
+
+
+                  const itemLines =
+                    doc.splitTextToSize(
+                      `• ${itemName}`,
+                      foodBoxW - 85
+                    );
+
+
+                  itemLines.forEach(
+                    line => {
+
+                      doc.text(
+                        line,
+                        80,
+                        currentY
+                      );
+
+                      currentY += 13;
+
+                    }
+                  );
+
+                }
+              );
+
+
+              currentY += 4;
+
+            }
           );
 
 
-        // Normal
-        if (
-          text.length <= 80
-        ) {
-
-          data.cell.styles.fontSize = 9;
-
-        }
-
-
-        // Long item name
-        else if (
-          text.length <= 150
-        ) {
-
-          data.cell.styles.fontSize = 8;
-
-        }
-
-
-        // Very long item name
-        else {
-
-          data.cell.styles.fontSize = 7;
-
-        }
-
-
-        data.cell.styles.overflow =
-          'linebreak';
+        currentY += 6;
 
       }
-
-    },
-
-
-    // -------------------------------------------------------
-    // RESET SPACING
-    // -------------------------------------------------------
-
-    willDrawCell: function () {
-
-      doc.setCharSpace(0);
-
-    },
+    );
 
 
-    didDrawCell: function () {
+  // =====================================================
+  // FOOD BOX BORDER
+  // =====================================================
 
-      doc.setCharSpace(0);
+  /*
+   * If everything fits on the first page,
+   * redraw the complete border around the content.
+   */
 
-    }
+  const foodHeight =
+  currentY - foodStartY + 15;
 
-  });
+if (currentY < pageHeight - 100) {
+
+  doc.setDrawColor(210, 210, 210);
+  doc.setLineWidth(0.6);
+
+  doc.roundedRect(
+    foodBoxX,
+    foodStartY,
+    foodBoxW,
+    foodHeight,
+    6,
+    6,
+    'S'
+  );
+}
 
 
-  // =========================================================
+  // =====================================================
   // PAYMENT SUMMARY POSITION
-  // =========================================================
+  // =====================================================
 
-  let y =
-    (doc.lastAutoTable?.finalY || 200) + 25;
+  let summaryY =
+    currentY + 20;
 
 
-  // =========================================================
+  if (
+    summaryY >
+    pageHeight - 180
+  ) {
+
+    doc.addPage();
+
+    summaryY = 50;
+
+  }
+
+
+  // =====================================================
   // PAYMENT SUMMARY
-  // =========================================================
+  // =====================================================
+summaryY += 20;
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
 
-  doc.setCharSpace(0);
+  doc.setFontSize(11);
+
+  doc.setTextColor(
+    35,
+    35,
+    35
+  );
+
+  doc.text(
+    'PAYMENT SUMMARY',
+    35,
+    summaryY
+  );
+
+
+  summaryY += 15;
+
+
+  const summaryBoxW =
+    pageWidth - 70;
+
+  const summaryBoxH =
+    105;
+
+
+  doc.setFillColor(
+    248,
+    248,
+    248
+  );
+
+  doc.setDrawColor(
+    210,
+    210,
+    210
+  );
+
+  doc.roundedRect(
+    35,
+    summaryY,
+    summaryBoxW,
+    summaryBoxH,
+    6,
+    6,
+    'FD'
+  );
+
+
+  let sy =
+    summaryY + 22;
+
+
+  const rightX =
+    pageWidth - 50;
+
+
+  // Total
 
   doc.setFont(
     'helvetica',
     'normal'
   );
 
-  doc.setFontSize(10);
-
-
-  // Order Total
+  doc.setFontSize(9);
 
   doc.text(
-    'Order Total:',
-    370,
-    y
+    'Order Total',
+    50,
+    sy
+  );
+
+  doc.setFont(
+    'helvetica',
+    'bold'
   );
 
   doc.text(
-    `Rs. ${Number(
-      ps.total || 0
-    ).toLocaleString('en-IN')}`,
-    555,
-    y,
+    pdfMoney(ps.total),
+    rightX,
+    sy,
     {
       align: 'right'
     }
   );
 
 
-  y += 18;
+  sy += 20;
 
 
   // Paid
 
-  doc.text(
-    'Paid:',
-    370,
-    y
+  doc.setFont(
+    'helvetica',
+    'normal'
   );
 
   doc.text(
-    `Rs. ${Number(
-      ps.paid || 0
-    ).toLocaleString('en-IN')}`,
-    555,
-    y,
+    'Total Paid',
+    50,
+    sy
+  );
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.text(
+    pdfMoney(ps.paid),
+    rightX,
+    sy,
     {
       align: 'right'
     }
   );
 
 
-  y += 18;
+  sy += 20;
 
 
   // Discount
 
-  doc.text(
-    'Payment Discount:',
-    370,
-    y
+  doc.setFont(
+    'helvetica',
+    'normal'
   );
 
   doc.text(
-    `- Rs. ${Number(
-      ps.disc || 0
-    ).toLocaleString('en-IN')}`,
-    555,
-    y,
-    {
-      align: 'right'
-    }
+    'Payment Discount',
+    50,
+    sy
   );
-
-
-  y += 22;
-
-
-  // =========================================================
-  // BALANCE BOX
-  // =========================================================
 
   doc.setFont(
     'helvetica',
     'bold'
   );
 
-  doc.setFontSize(13);
-
-  doc.setCharSpace(0);
-
-
   doc.text(
-    'BALANCE:',
-    370,
-    y
-  );
-
-
-  doc.text(
-    `Rs. ${Number(
-      ps.balance || 0
-    ).toLocaleString('en-IN')}`,
-    555,
-    y,
+    `- ${pdfMoney(ps.disc)}`,
+    rightX,
+    sy,
     {
       align: 'right'
     }
   );
 
 
-  // =========================================================
-  // PAYMENT STATUS
-  // =========================================================
-
-  y += 28;
+  sy += 21;
 
 
-  let paymentStatus =
-    'UNPAID';
+  // Balance
+
+  doc.setFont(
+    'helvetica',
+    'bold'
+  );
+
+  doc.setFontSize(11);
+
+  doc.text(
+    'BALANCE',
+    50,
+    sy
+  );
+
+  doc.text(
+    pdfMoney(ps.balance),
+    rightX,
+    sy,
+    {
+      align: 'right'
+    }
+  );
+
+
+  // =====================================================
+  // PAYMENT HISTORY
+  // =====================================================
+
+  let historyY =
+    summaryY +
+    summaryBoxH +
+    25;
 
 
   if (
-    Number(ps.balance || 0) <= 0 &&
-    Number(ps.total || 0) > 0
+    historyY >
+    pageHeight - 100
   ) {
 
-    paymentStatus =
-      'FULLY PAID';
+    doc.addPage();
 
-  } else if (
-    Number(ps.paid || 0) +
-    Number(ps.disc || 0) > 0
-  ) {
-
-    paymentStatus =
-      'PARTIALLY PAID';
+    historyY = 50;
 
   }
-
-
-  doc.setFont(
-    'helvetica',
-    'bold'
-  );
-
-  doc.setFontSize(9);
-
-  doc.text(
-    `Payment Status: ${paymentStatus}`,
-    370,
-    y
-  );
-
-
-  // =========================================================
-  // PAYMENT HISTORY
-  // =========================================================
-
-  y += 35;
 
 
   doc.setFont(
@@ -1783,68 +2214,61 @@ async function generatePDF() {
 
   doc.text(
     'PAYMENT HISTORY',
-    40,
-    y
+    35,
+    historyY
   );
 
 
-  y += 10;
+  historyY += 15;
 
 
-  // ---------------------------------------------------------
-  // Payment history table
-  // ---------------------------------------------------------
+  // =====================================================
+  // PAYMENT HISTORY TABLE
+  // =====================================================
 
   const paymentRows =
-    (S.payments || []).map(p => {
-
-      return [
+    (S.payments || []).map(
+      p => [
 
         formatDateDisplay(
           p.payment_date
         ),
 
-        `Rs. ${Number(
-          p.amount || 0
-        ).toLocaleString('en-IN')}`,
+        pdfMoney(p.amount),
 
-        `Rs. ${Number(
-          p.discount || 0
-        ).toLocaleString('en-IN')}`
+        pdfMoney(p.discount),
 
-      ];
+        pdfMoney(
+          Number(p.amount || 0) +
+          Number(p.discount || 0)
+        )
 
-    });
+      ]
+    );
 
 
-  if (
-    paymentRows.length
-  ) {
+  if (paymentRows.length) {
 
     doc.autoTable({
 
-      startY: y + 8,
+      startY: historyY,
 
       margin: {
-        left: 40,
-        right: 40,
-        bottom: 45
+        left: 35,
+        right: 35,
+        bottom: 40
       },
-
 
       head: [[
         'Date',
         'Paid',
-        'Discount'
+        'Discount',
+        'Payment Value'
       ]],
 
-
-      body:
-        paymentRows,
-
+      body: paymentRows,
 
       theme: 'grid',
-
 
       styles: {
 
@@ -1853,8 +2277,6 @@ async function generatePDF() {
         fontSize: 8,
 
         cellPadding: 5,
-
-        overflow: 'linebreak',
 
         valign: 'middle',
 
@@ -1868,20 +2290,13 @@ async function generatePDF() {
 
       },
 
-
       headStyles: {
-
-        font: 'helvetica',
 
         fontStyle: 'bold',
 
         fontSize: 8,
 
-        fillColor: [
-          47,
-          100,
-          89
-        ],
+        halign: 'center',
 
         textColor: [
           255,
@@ -1889,53 +2304,67 @@ async function generatePDF() {
           255
         ],
 
-        halign: 'center'
+        fillColor: [
+          47,
+          100,
+          89
+        ]
 
       },
-
 
       columnStyles: {
 
         0: {
-          cellWidth: 180,
-          halign: 'left'
+          cellWidth: 120,
+          halign: 'center'
         },
 
         1: {
-          cellWidth: 150,
+          cellWidth: 110,
           halign: 'right'
         },
 
         2: {
-          cellWidth: 150,
+          cellWidth: 110,
+          halign: 'right'
+        },
+
+        3: {
+          cellWidth: 130,
           halign: 'right'
         }
 
       },
 
+      didParseCell: function(data) {
 
-      didParseCell:
-        function (data) {
+        doc.setCharSpace(0);
 
-          doc.setCharSpace(0);
+        if (
+          data.section === 'body' &&
+          [1, 2, 3].includes(
+            data.column.index
+          )
+        ) {
 
-        },
-
-
-      willDrawCell:
-        function () {
-
-          doc.setCharSpace(0);
-
-        },
-
-
-      didDrawCell:
-        function () {
-
-          doc.setCharSpace(0);
+          data.cell.styles.halign =
+            'right';
 
         }
+
+      },
+
+      willDrawCell: function() {
+
+        doc.setCharSpace(0);
+
+      },
+
+      didDrawCell: function() {
+
+        doc.setCharSpace(0);
+
+      }
 
     });
 
@@ -1946,66 +2375,72 @@ async function generatePDF() {
       'normal'
     );
 
-    doc.setFontSize(9);
+    doc.setFontSize(8);
 
     doc.text(
       'No payment recorded.',
-      40,
-      y + 28
+      35,
+      historyY
     );
 
   }
 
 
-  // =========================================================
+  // =====================================================
   // FOOTER
-  // =========================================================
+  // =====================================================
 
-  doc.setCharSpace(0);
-
-  doc.setFont(
-    'helvetica',
-    'normal'
-  );
-
-  doc.setFontSize(8);
-
-  doc.setTextColor(
-    110,
-    110,
-    110
-  );
+  const totalPages =
+    doc.internal.getNumberOfPages();
 
 
-  doc.text(
-    businessName,
-    40,
-    pageHeight - 20
-  );
+  for (
+    let page = 1;
+    page <= totalPages;
+    page++
+  ) {
+
+    doc.setPage(page);
+
+    doc.setFont(
+      'helvetica',
+      'normal'
+    );
+
+    doc.setFontSize(7.5);
+
+    doc.setTextColor(
+      110,
+      110,
+      110
+    );
+
+    doc.text(
+      'O. S Kitchen Caters And Events',
+      35,
+      pageHeight - 18
+    );
+
+    doc.text(
+      `Page ${page} of ${totalPages}`,
+      pageWidth - 35,
+      pageHeight - 18,
+      {
+        align: 'right'
+      }
+    );
+
+  }
 
 
-  doc.text(
-    `Generated: ${new Date().toLocaleString('en-IN')}`,
-    pageWidth - 40,
-    pageHeight - 20,
-    {
-      align: 'right'
-    }
-  );
-
-
-  // =========================================================
+  // =====================================================
   // SAVE
-  // =========================================================
+  // =====================================================
 
   doc.save(
     `${shortId(o.id)}-payment-bill.pdf`
   );
 
-
-  // =========================================================
-  // SUCCESS
-  // =========================================================
 
   toast(
     'Payment bill PDF generated',
