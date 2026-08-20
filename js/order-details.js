@@ -1616,51 +1616,58 @@ async function generatePDF() {
 
   // Order details box
 
-  doc.roundedRect(
-    305,
-    infoY,
-    pageWidth - 340,
-    75,
-    6,
-    6,
-    'FD'
-  );
+ // ORDER DETAILS BOX
+doc.setFillColor(82, 83, 85);       // dark gray background
+doc.setDrawColor(220, 220, 220);    // light border
+doc.setLineWidth(0.8);
 
+doc.roundedRect(
+  305,
+  infoY,
+  pageWidth - 340,
+  75,
+  6,
+  6,
+  'FD'
+);
 
-  doc.setFont(
-    'helvetica',
-    'bold'
-  );
+// -----------------------------
+// ORDER DETAILS TITLE
+// -----------------------------
+doc.setFont('helvetica', 'bold');
+doc.setFontSize(14);
+doc.setTextColor(255, 255, 255);
 
-  doc.text(
-    'ORDER DETAILS',
-    318,
-    infoY + 18
-  );
+doc.text(
+  'ORDER DETAILS',
+  318,
+  infoY + 18
+);
 
+// -----------------------------
+// ORDER DETAILS CONTENT
+// -----------------------------
+doc.setFont('helvetica', 'normal');
+doc.setFontSize(11);
+doc.setTextColor(255, 255, 255);
 
-  doc.setFont(
-    'helvetica',
-    'normal'
-  );
+doc.text(
+  `Guests: ${o.guest_count || 0}`,
+  318,
+  infoY + 35
+);
 
-  doc.text(
-    `Guests: ${o.guest_count || 0}`,
-    318,
-    infoY + 35
-  );
+doc.text(
+  `Per Plate: ${pdfMoney(o.per_plate_amount)}`,
+  318,
+  infoY + 51
+);
 
-  doc.text(
-    `Per Plate: ${pdfMoney(o.per_plate_amount)}`,
-    318,
-    infoY + 51
-  );
-
-  doc.text(
-    `Order Total: ${pdfMoney(ps.total)}`,
-    318,
-    infoY + 67
-  );
+doc.text(
+  `Order Total: ${pdfMoney(ps.total)}`,
+  318,
+  infoY + 67
+);
 
 
   // =====================================================
