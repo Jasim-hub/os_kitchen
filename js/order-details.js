@@ -1617,26 +1617,36 @@ async function generatePDF() {
   // Order details box
 
  // ORDER DETAILS BOX
-doc.setFillColor(82, 83, 85);       // dark gray background
-doc.setDrawColor(220, 220, 220);    // light border
-doc.setLineWidth(0.8);
+doc.setFillColor(
+    248,
+    248,
+    248
+  );
 
-doc.roundedRect(
-  305,
-  infoY,
-  pageWidth - 340,
-  75,
-  6,
-  6,
-  'FD'
-);
+  doc.setDrawColor(
+    220,
+    220,
+    220
+  );
+
+  doc.roundedRect(
+    35,
+    infoY,
+    250,
+    75,
+    6,
+    6,
+    'FD'
+  );
 
 // -----------------------------
 // ORDER DETAILS TITLE
 // -----------------------------
 doc.setFont('helvetica', 'bold');
-doc.setFontSize(14);
-doc.setTextColor(255, 255, 255);
+doc.setFontSize(9);
+doc.setTextColor(47,
+    100,
+    89);
 
 doc.text(
   'ORDER DETAILS',
@@ -1648,8 +1658,10 @@ doc.text(
 // ORDER DETAILS CONTENT
 // -----------------------------
 doc.setFont('helvetica', 'normal');
-doc.setFontSize(11);
-doc.setTextColor(255, 255, 255);
+doc.setFontSize(8.5);
+doc.setTextColor(47,
+    100,
+    89);
 
 doc.text(
   `Guests: ${o.guest_count || 0}`,
